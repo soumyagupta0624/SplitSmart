@@ -1,0 +1,283 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SplitSmart | Expense Dashboard</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+    <script src="{{ url_for('static', filename='script.js') }}"
+            defer></script>
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <a class="brand" href="/">
+            <span class="brand-icon">S</span>
+            <span>SplitSmart</span>
+        </a>
+
+        <p class="nav-label">WORKSPACE</p>
+        <a class="nav-link active" href="#dashboard">▦ &nbsp; Dashboard</a>
+        <a class="nav-link" href="#add-expense">＋ &nbsp; Add expense</a>
+        <a class="nav-link" href="#history">↻ &nbsp; Expense history</a>
+        <a class="nav-link" href="#settlements">⇄ &nbsp; Settlements</a>
+
+        <div class="sidebar-bottom">
+            <div class="avatar">SS</div>
+            <div>
+                <strong>My Group</strong>
+                <p>Shared expenses</p>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-content" id="dashboard">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">OVERVIEW</p>
+                <h1>Expense Dashboard</h1>
+                <p class="muted">Keep your shared spending organized.</p>
+            </div>
+            <a class="primary-button" href="#add-expense">＋ Add expense</a>
+        </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-area">
+              {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <section class="stats-grid">
+            <article class="stat-card">
+                <div class="stat-heading">Total expenses <span>₹</span></div>
+                <h2>₹{{ "%.2f"|format(total) }}</h2>
+                <p class="muted">All recorded bills</p>
+            </article>
+
+            <article class="stat-card">
+                <div class="stat-heading">Group members <span>♙</span></div>
+                <h2>{{ members|length }}</h2>
+                <p class="muted">People in your group</p>
+            </article>
+
+            <article class="stat-card">
+                <div class="stat-heading">Recorded bills <span>▤</span></div>
+                <h2>{{ expenses|length }}</h2>
+                <p class="muted">Expenses saved</p>
+            </article>
+        </section>
+
+        <section class="content-grid">
+            <article class="panel" id="add-expense">
+                <div class="panel-heading">
+                    <div>
+                        <h2>Add an expense</h2>
+                        <p class="muted">Record a bill and split it fairly.</p>
+                    </div>
+                    <span class="heading-icon">＋</span>
+                </div>
+
+                <form action="{{ url_for('add_expense') }}"
+                      method="POST" class="form-stack">
+                    <label for="description">Expense description</label>
+                    <input id="description" name="description"
+                           maxlength="100" placeholder="e.g. Dinner, cab, groceries"
+                           required>
+
+                    <label for="amount">Amount (₹)</label>
+                    <input id="amount" name="amount" type="number"
+                           min="0.01" step="0.01" placeholder="0.00" required>
+
+                    <label for="payer_id">Who paid?</label>
+                    <select id="payer_id" name="payer_id" required>
+                        <option value="">Select a member</option>
+                        {% for member in members %}
+                        <option value="{{ member.id }}">{{ member.name }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <div class="label-row">
+                        <label>Split between</label>
+                        <button type="button" class="text-button"
+                                id="select-all">Select all</button>
+                    </div>
+
+                    {% if members %}
+                    <div class="participant-list">
+                        {% for member in members %}
+                        <label class="participant">
+                            <input type="checkbox" name="participants"
+                                   value="{{ member.id }}" checked>
+                            <span class="member-avatar">
+                                {{ member.name[0]|upper }}
+                            </span>
+                            <span>{{ member.name }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="muted">Add group members first.</p>
+                    {% endif %}
+
+                    <button class="primary-button full-width"
+                            type="submit" {% if not members %}disabled{% endif %}>
+                        Save expense
+                    </button>
+                </form>
+            </article>
+
+            <article class="panel">
+                <div class="panel-heading">
+                    <div>
+                        <h2>Group members</h2>
+                        <p class="muted">Add people to your group.</p>
+                    </div>
+                    <span class="heading-icon">♙</span>
+                </div>
+
+                <form action="{{ url_for('add_members') }}" method="POST"
+                      class="form-stack">
+                    <label for="names">Member names</label>
+                    <textarea id="names" name="names" rows="3"
+                              placeholder="Aman, Riya, Rahul" required></textarea>
+                    <p class="helper">
+                        Separate names with commas. Existing members are kept.
+                    </p>
+                    <button type="submit" class="secondary-button">
+                        Save members
+                    </button>
+                </form>
+
+                <div class="member-list">
+                    {% for member in members %}
+                    <div class="member-row">
+                        <span class="member-avatar">
+                            {{ member.name[0]|upper }}
+                        </span>
+                        <span>{{ member.name }}</span>
+                        <span class="member-status">Active</span>
+                    </div>
+                    {% else %}
+                    <p class="muted">No members yet. Add your first group!</p>
+                    {% endfor %}
+                </div>
+            </article>
+        </section>
+
+        <section class="panel balance-panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>Balances</h2>
+                    <p class="muted">See who owes money and who should receive it.</p>
+                </div>
+            </div>
+
+            <div class="balance-grid">
+                {% for item in balances %}
+                <div class="balance-card">
+                    <span class="member-avatar">{{ item.name[0]|upper }}</span>
+                    <div class="balance-info">
+                        <strong>{{ item.name }}</strong>
+                        {% if item.balance > 0.005 %}
+                        <span class="positive">Gets back ₹{{ "%.2f"|format(item.balance) }}</span>
+                        {% elif item.balance < -0.005 %}
+                        <span class="negative">Owes ₹{{ "%.2f"|format(-item.balance) }}</span>
+                        {% else %}
+                        <span class="neutral">Settled up</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <p class="muted">Add members and expenses to see balances.</p>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="content-grid bottom-grid">
+            <article class="panel" id="history">
+                <div class="panel-heading">
+                    <div>
+                        <h2>Recent expenses</h2>
+                        <p class="muted">Your latest recorded transactions.</p>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr><th>Expense</th><th>Paid by</th>
+                                <th>Amount</th><th>Action</th></tr>
+                        </thead>
+                        <tbody>
+                        {% for expense in expenses %}
+                            <tr>
+                                <td>
+                                    <strong>{{ expense.description }}</strong>
+                                    <small>{{ expense.created_at }}</small>
+                                </td>
+                                <td>{{ expense.payer }}</td>
+                                <td class="amount-cell">
+                                    ₹{{ "%.2f"|format(expense.amount) }}
+                                </td>
+                                <td>
+                                    <form method="POST"
+                                          action="{{ url_for('delete_expense', expense_id=expense.id) }}"
+                                          class="delete-form">
+                                        <button type="submit" class="delete-button">
+                                            Delete
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="4" class="empty-state">
+                                No expenses yet. Add your first bill!
+                            </td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+
+            <article class="panel" id="settlements">
+                <div class="panel-heading">
+                    <div>
+                        <h2>Suggested settlements</h2>
+                        <p class="muted">A simple way to clear group dues.</p>
+                    </div>
+                    <span class="heading-icon">⇄</span>
+                </div>
+
+                {% for payment in settlements %}
+                <div class="settlement-row">
+                    <div>
+                        <strong>{{ payment.from }}</strong>
+                        <p class="muted">pays {{ payment.to }}</p>
+                    </div>
+                    <strong class="settlement-amount">
+                        ₹{{ "%.2f"|format(payment.amount) }}
+                    </strong>
+                </div>
+                {% else %}
+                <p class="empty-state">
+                    {% if members and expenses %}
+                        Everyone is settled up!
+                    {% else %}
+                        Add expenses to calculate settlements.
+                    {% endif %}
+                </p>
+                {% endfor %}
+            </article>
+        </section>
+
+        <footer>SplitSmart · Built with Flask, SQLite, HTML & CSS</footer>
+    </main>
+</div>
+</body>
+</html>
